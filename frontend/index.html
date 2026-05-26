@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contactos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">contact<span>os</span></div>
+    <span class="badge">AWS · Node · PostgreSQL</span>
+  </header>
+
+  <!-- Formulario -->
+  <div class="form-card">
+    <div class="form-title" id="form-title">Nuevo contacto</div>
+    <div class="form-grid">
+      <div>
+        <label>Nombre *</label>
+        <input id="f-name" type="text" placeholder="Juan Pérez" />
+      </div>
+      <div>
+        <label>Teléfono</label>
+        <input id="f-phone" type="tel" placeholder="+51 999 999 999" />
+      </div>
+      <div>
+        <label>Email</label>
+        <input id="f-email" type="email" placeholder="juan@email.com" />
+      </div>
+      <div>
+        <label>Dirección</label>
+        <input id="f-address" type="text" placeholder="Av. Lima 123" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="saveContact()">Guardar contacto</button>
+      <button class="btn-secondary" onclick="resetForm()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Lista -->
+  <div class="list-header">
+    <span class="list-title">Mis contactos</span>
+    <span class="count-badge" id="count">0</span>
+  </div>
+
+  <div class="contacts-grid" id="contacts-list">
+    <div class="empty">
+      <div class="empty-icon">📭</div>
+      <p>No hay contactos aún.<br/>Agrega tu primero arriba.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:3000/api/contacts';
+  let editingId = null;
+
+  async function fetchContacts() {
+    try {
+      const res = await fetch(API);
+      const data = await res.json();
+      renderContacts(data);
+    } catch {
+      showToast('Error al conectar con la API', true);
+    }
+  }
+
+  function renderContacts(contacts) {
+    const list = document.getElementById('contacts-list');
+    document.getElementById('count').textContent = contacts.length;
+
+    if (!contacts.length) {
+      list.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📭</div>
+          <p>No hay contactos aún.<br/>Agrega tu primero arriba.</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = contacts.map(c => `
+      <div class="contact-card" id="card-${c.id}">
+        <div class="avatar">${c.name.charAt(0).toUpperCase()}</div>
+        <div class="contact-info">
+          <div class="contact-name">${esc(c.name)}</div>
+          <div class="contact-meta">
+            ${c.phone  ? `<span class="tag">📞 ${esc(c.phone)}</span>` : ''}
+            ${c.email  ? `<span class="tag">✉️ ${esc(c.email)}</span>` : ''}
+            ${c.address? `<span class="tag">📍 ${esc(c.address)}</span>` : ''}
+          </div>
+        </div>
+        <div class="contact-actions">
+          <button class="btn-icon btn-edit" onclick="editContact(${c.id})" title="Editar">✏️</button>
+          <button class="btn-icon btn-delete" onclick="deleteContact(${c.id})" title="Eliminar">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function saveContact() {
+    const name    = document.getElementById('f-name').value.trim();
+    const phone   = document.getElementById('f-phone').value.trim();
+    const email   = document.getElementById('f-email').value.trim();
+    const address = document.getElementById('f-address').value.trim();
+
+    if (!name) { showToast('El nombre es requerido', true); return; }
+
+    const body = { name, phone, email, address };
+    const method = editingId ? 'PUT' : 'POST';
+    const url    = editingId ? `${API}/${editingId}` : API;
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error();
+      showToast(editingId ? 'Contacto actualizado ✓' : 'Contacto creado ✓');
+      resetForm();
+      fetchContacts();
+    } catch {
+      showToast('Error al guardar', true);
+    }
+  }
+
+  async function editContact(id) {
+    try {
+      const res = await fetch(`${API}/${id}`);
+      const c = await res.json();
+      document.getElementById('f-name').value    = c.name    || '';
+      document.getElementById('f-phone').value   = c.phone   || '';
+      document.getElementById('f-email').value   = c.email   || '';
+      document.getElementById('f-address').value = c.address || '';
+      document.getElementById('form-title').textContent = 'Editar contacto';
+      editingId = id;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      showToast('Error al cargar contacto', true);
+    }
+  }
+
+  async function deleteContact(id) {
+    if (!confirm('¿Eliminar este contacto?')) return;
+    try {
+      await fetch(`${API}/${id}`, { method: 'DELETE' });
+      showToast('Contacto eliminado');
+      fetchContacts();
+    } catch {
+      showToast('Error al eliminar', true);
+    }
+  }
+
+  function resetForm() {
+    ['f-name','f-phone','f-email','f-address'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('form-title').textContent = 'Nuevo contacto';
+    editingId = null;
+  }
+
+  function esc(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  let toastTimer;
+  function showToast(msg, error = false) {
+    const old = document.querySelector('.toast');
+    if (old) old.remove();
+    clearTimeout(toastTimer);
+    const t = document.createElement('div');
+    t.className = 'toast' + (error ? ' error' : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    toastTimer = setTimeout(() => t.remove(), 3000);
+  }
+
+  fetchContacts();
+</script>
+</body>
+</html>
