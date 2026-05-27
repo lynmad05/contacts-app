@@ -15,7 +15,6 @@
     <span class="badge">AWS · Node · PostgreSQL</span>
   </header>
 
-  <!-- Formulario -->
   <div class="form-card">
     <div class="form-title" id="form-title">Nuevo contacto</div>
     <div class="form-grid">
@@ -58,7 +57,7 @@
 </div>
 
 <script>
-  const API = 'http://localhost:3000/api/contacts';
+  const API = `${window.location.origin}/api/contacts`;
   let editingId = null;
 
   async function fetchContacts() {
